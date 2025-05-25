@@ -1,0 +1,6 @@
+aiogram==2.25.1
+yt-dlp
+Flask==3.0.3
+python-dotenv==1.0.1
+requests
+beautifulsoup4

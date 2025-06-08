@@ -54,8 +54,7 @@ async def handle_message(message: Message):
                         await message.reply_video(open(path, 'rb'))
             except Exception as e:
                 logging.exception("Instagram download failed")
-                await message.reply(f"🥲 Не вдалося завантажити Instagram:
-{e}")
+                await message.reply(f"🥲 Не вдалося завантажити Instagram:\n{e}")
 
     # TikTok handling
     elif 'tiktok.com' in url or 'vm.tiktok.com' in url:
@@ -75,8 +74,7 @@ async def handle_message(message: Message):
                     await message.reply_video(open(path, 'rb'))
             except Exception as e:
                 logging.exception("TikTok download failed")
-                await message.reply(f"🥲 Не вдалося завантажити TikTok:
-{e}")
+                await message.reply(f"🥲 Не вдалося завантажити TikTok:\n{e}")
     else:
         await message.reply("❗ Надішліть прямий лінк на Instagram чи TikTok.")
 

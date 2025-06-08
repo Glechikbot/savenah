@@ -15,13 +15,11 @@ API_TOKEN = os.getenv("BOT_TOKEN")
 if not API_TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
 
+IG_USERNAME = os.getenv("IG_USERNAME")
+IG_PASSWORD = os.getenv("IG_PASSWORD")
 TT_COOKIES = os.getenv("TT_COOKIES", "")
 
-# Path to static Instagram cookiefile
-HERE = os.path.dirname(os.path.abspath(__file__))
-COOKIEFILE = os.path.join(HERE, "instagram_cookies.txt")
-
-# Logging setup
+# Logging
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
@@ -33,31 +31,36 @@ async def cmd_start(message: Message):
 @dp.message_handler()
 async def handle_message(message: Message):
     url = message.text.strip()
+    # Instagram via login
     if 'instagram.com' in url or 'instagr.am' in url:
-        await message.reply("🔍 Завантажую Instagram відео…")
-        with tempfile.TemporaryDirectory() as tmpdir:
+        if not IG_USERNAME or not IG_PASSWORD:
+            await message.reply("🚫 Встановіть логін/пароль Instagram у .env")
+            return
+        await message.reply("🔍 Завантажую Instagram відео (логін)…")
+        with tempfile.TemporaryDirectory() as tmp:
             opts = {
                 'format': 'mp4',
-                'outtmpl': os.path.join(tmpdir, '%(id)s.%(ext)s'),
+                'outtmpl': os.path.join(tmp, '%(id)s.%(ext)s'),
                 'quiet': True,
-                'cookiefile': COOKIEFILE,
+                'username': IG_USERNAME,
+                'password': IG_PASSWORD,
             }
             try:
                 with YoutubeDL(opts) as ydl:
                     info = ydl.extract_info(url, download=True)
-                    entries = info.get('entries') or [info]
-                    for entry in entries:
-                        path = ydl.prepare_filename(entry)
+                    for e in info.get('entries') or [info]:
+                        path = ydl.prepare_filename(e)
                         await message.reply_video(open(path, 'rb'))
             except Exception as e:
                 logging.exception("Instagram download failed")
                 await message.reply(f"🥲 Не вдалося завантажити Instagram:\n{e}")
+    # TikTok via cookies header
     elif 'tiktok.com' in url or 'vm.tiktok.com' in url:
         await message.reply("🔍 Завантажую TikTok відео…")
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with tempfile.TemporaryDirectory() as tmp:
             opts = {
                 'format': 'mp4',
-                'outtmpl': os.path.join(tmpdir, '%(id)s.%(ext)s'),
+                'outtmpl': os.path.join(tmp, '%(id)s.%(ext)s'),
                 'quiet': True,
             }
             if TT_COOKIES:
@@ -73,14 +76,14 @@ async def handle_message(message: Message):
     else:
         await message.reply("❗ Надішліть прямий лінк на Instagram чи TikTok.")
 
-# Health-check for hosting
-flask_app = Flask(__name__)
-@flask_app.route("/", methods=["GET"])
-def health(): return "OK", 200
+# Health-check
+app = Flask(__name__)
+@app.route('/', methods=['GET'])
+def health(): return 'OK', 200
 
 def run_flask():
-    port = int(os.getenv("PORT", 10000))
-    flask_app.run(host="0.0.0.0", port=port)
+    port = int(os.getenv('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
 
 if __name__ == '__main__':
     threading.Thread(target=run_flask, daemon=True).start()

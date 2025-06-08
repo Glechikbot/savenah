@@ -9,7 +9,7 @@ from aiogram.utils import executor
 from yt_dlp import YoutubeDL
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load .env variables
 load_dotenv()
 API_TOKEN = os.getenv("BOT_TOKEN")
 if not API_TOKEN:
@@ -18,20 +18,20 @@ if not API_TOKEN:
 TT_COOKIES = os.getenv("TT_COOKIES", "")
 IG_COOKIES = os.getenv("IG_COOKIES", "")
 
-# Logging
+# Logging setup
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
 @dp.message_handler(commands=['start', 'help'])
 async def cmd_start(message: Message):
-    await message.reply("Привіт! Надішліть лінк на Instagram чи TikTok — завантажимо всі відео 🎬")
+    await message.reply("Привіт! Надішліть лінк на Instagram чи TikTok — я закачаю всі відео 🎬")
 
 @dp.message_handler()
 async def handle_message(message: Message):
     url = message.text.strip()
     if 'instagram.com' in url or 'instagr.am' in url:
-        await message.reply("🔍 Завантажую Instagram відео…")
+        await message.reply("🔍 Завантажую всі Instagram відео…")
         with tempfile.TemporaryDirectory() as tmpdir:
             opts = {
                 'format': 'mp4',
@@ -48,8 +48,8 @@ async def handle_message(message: Message):
                         path = ydl.prepare_filename(entry)
                         await message.reply_video(open(path, 'rb'))
             except Exception as e:
-                logging.exception(e)
-                await message.reply("🥲 Помилка з Instagram.")
+                logging.exception("Instagram download failed")
+                await message.reply("🥲 Не вдалося завантажити Instagram відео.\n" + str(e))
 
     elif 'tiktok.com' in url or 'vm.tiktok.com' in url:
         await message.reply("🔍 Завантажую TikTok відео…")
@@ -67,12 +67,12 @@ async def handle_message(message: Message):
                     path = ydl.prepare_filename(info)
                     await message.reply_video(open(path, 'rb'))
             except Exception as e:
-                logging.exception(e)
-                await message.reply("🥲 Помилка з TikTok.")
-
+                logging.exception("TikTok download failed")
+                await message.reply("🥲 Не вдалося завантажити TikTok відео.\n" + str(e))
     else:
-        await message.reply("❗ Надішліть посилання на Instagram або TikTok.")
+        await message.reply("❗ Надішліть прямий лінк на Instagram чи TikTok.")
 
+# Flask health-check
 flask_app = Flask(__name__)
 
 @flask_app.route("/", methods=["GET"])

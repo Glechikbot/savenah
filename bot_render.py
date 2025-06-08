@@ -15,12 +15,11 @@ API_TOKEN = os.getenv("BOT_TOKEN")
 if not API_TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
 
-# Instagram credentials
-IG_USERNAME = os.getenv("IG_USERNAME")
-IG_PASSWORD = os.getenv("IG_PASSWORD")
-
-# TikTok cookies (optional)
 TT_COOKIES = os.getenv("TT_COOKIES", "")
+
+# Path to static Instagram cookiefile
+HERE = os.path.dirname(os.path.abspath(__file__))
+COOKIEFILE = os.path.join(HERE, "instagram_cookies.txt")
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -34,7 +33,6 @@ async def cmd_start(message: Message):
 @dp.message_handler()
 async def handle_message(message: Message):
     url = message.text.strip()
-    # Instagram handling
     if 'instagram.com' in url or 'instagr.am' in url:
         await message.reply("🔍 Завантажую Instagram відео…")
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -42,8 +40,7 @@ async def handle_message(message: Message):
                 'format': 'mp4',
                 'outtmpl': os.path.join(tmpdir, '%(id)s.%(ext)s'),
                 'quiet': True,
-                'username': IG_USERNAME,
-                'password': IG_PASSWORD,
+                'cookiefile': COOKIEFILE,
             }
             try:
                 with YoutubeDL(opts) as ydl:
@@ -55,8 +52,6 @@ async def handle_message(message: Message):
             except Exception as e:
                 logging.exception("Instagram download failed")
                 await message.reply(f"🥲 Не вдалося завантажити Instagram:\n{e}")
-
-    # TikTok handling
     elif 'tiktok.com' in url or 'vm.tiktok.com' in url:
         await message.reply("🔍 Завантажую TikTok відео…")
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -78,17 +73,15 @@ async def handle_message(message: Message):
     else:
         await message.reply("❗ Надішліть прямий лінк на Instagram чи TikTok.")
 
-# Health-check server
+# Health-check for hosting
 flask_app = Flask(__name__)
-
 @flask_app.route("/", methods=["GET"])
-def health():
-    return "OK", 200
+def health(): return "OK", 200
 
 def run_flask():
     port = int(os.getenv("PORT", 10000))
     flask_app.run(host="0.0.0.0", port=port)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     threading.Thread(target=run_flask, daemon=True).start()
     executor.start_polling(dp, skip_updates=True)

@@ -2,7 +2,6 @@ import os
 import tempfile
 import logging
 import threading
-from datetime import datetime, timedelta
 from flask import Flask
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message
@@ -10,31 +9,20 @@ from aiogram.utils import executor
 from yt_dlp import YoutubeDL
 from dotenv import load_dotenv
 
-# Load environment
+# Load environment variables
 load_dotenv()
 API_TOKEN = os.getenv("BOT_TOKEN")
 if not API_TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
+
+# Instagram credentials
+IG_USERNAME = os.getenv("IG_USERNAME")
+IG_PASSWORD = os.getenv("IG_PASSWORD")
+
+# TikTok cookies (optional)
 TT_COOKIES = os.getenv("TT_COOKIES", "")
-IG_COOKIES = os.getenv("IG_COOKIES", "")
 
-# Prepare Instagram cookiefile
-HERE = os.path.dirname(os.path.abspath(__file__))
-COOKIEFILE = os.path.join(HERE, "instagram_cookies.txt")
-if IG_COOKIES:
-    expiry = int((datetime.now() + timedelta(days=365)).timestamp())
-    lines = ["# Netscape HTTP Cookie File"]
-    for part in IG_COOKIES.strip('"').split(";"):
-        name, value = part.strip().split("=", 1)
-        lines.append("\t".join([
-            ".instagram.com", "TRUE", "/", "FALSE",
-            str(expiry), name, value
-        ]))
-    with open(COOKIEFILE, "w") as f:
-        f.write("\n".join(lines))
-    logging.info(f"Instagram cookies written to {COOKIEFILE}")
-
-# Logging
+# Logging setup
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
@@ -46,32 +34,36 @@ async def cmd_start(message: Message):
 @dp.message_handler()
 async def handle_message(message: Message):
     url = message.text.strip()
+    # Instagram handling
     if 'instagram.com' in url or 'instagr.am' in url:
         await message.reply("🔍 Завантажую Instagram відео…")
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory() as tmpdir:
             opts = {
                 'format': 'mp4',
-                'outtmpl': os.path.join(tmp, '%(id)s.%(ext)s'),
+                'outtmpl': os.path.join(tmpdir, '%(id)s.%(ext)s'),
                 'quiet': True,
-                'cookiefile': COOKIEFILE,
+                'username': IG_USERNAME,
+                'password': IG_PASSWORD,
             }
             try:
                 with YoutubeDL(opts) as ydl:
                     info = ydl.extract_info(url, download=True)
                     entries = info.get('entries') or [info]
-                    for e in entries:
-                        path = ydl.prepare_filename(e)
+                    for entry in entries:
+                        path = ydl.prepare_filename(entry)
                         await message.reply_video(open(path, 'rb'))
             except Exception as e:
                 logging.exception("Instagram download failed")
-                await message.reply(f"🥲 Не вдалося завантажити Instagram:\n{e}")
+                await message.reply(f"🥲 Не вдалося завантажити Instagram:
+{e}")
 
+    # TikTok handling
     elif 'tiktok.com' in url or 'vm.tiktok.com' in url:
         await message.reply("🔍 Завантажую TikTok відео…")
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory() as tmpdir:
             opts = {
                 'format': 'mp4',
-                'outtmpl': os.path.join(tmp, '%(id)s.%(ext)s'),
+                'outtmpl': os.path.join(tmpdir, '%(id)s.%(ext)s'),
                 'quiet': True,
             }
             if TT_COOKIES:
@@ -83,12 +75,14 @@ async def handle_message(message: Message):
                     await message.reply_video(open(path, 'rb'))
             except Exception as e:
                 logging.exception("TikTok download failed")
-                await message.reply(f"🥲 Не вдалося завантажити TikTok:\n{e}")
+                await message.reply(f"🥲 Не вдалося завантажити TikTok:
+{e}")
     else:
         await message.reply("❗ Надішліть прямий лінк на Instagram чи TikTok.")
 
-# Health-check
+# Health-check server
 flask_app = Flask(__name__)
+
 @flask_app.route("/", methods=["GET"])
 def health():
     return "OK", 200

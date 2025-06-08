@@ -16,7 +16,6 @@ if not API_TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
 
 TT_COOKIES = os.getenv("TT_COOKIES", "")
-IG_COOKIES = os.getenv("IG_COOKIES", "")
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -37,9 +36,8 @@ async def handle_message(message: Message):
                 'format': 'mp4',
                 'outtmpl': os.path.join(tmpdir, '%(id)s.%(ext)s'),
                 'quiet': True,
+                'cookiefile': 'instagram_cookies.txt',
             }
-            if IG_COOKIES:
-                opts['http_headers'] = {'Cookie': IG_COOKIES}
             try:
                 with YoutubeDL(opts) as ydl:
                     info = ydl.extract_info(url, download=True)

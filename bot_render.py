@@ -9,54 +9,44 @@ from aiogram.utils import executor
 from yt_dlp import YoutubeDL
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 API_TOKEN = os.getenv("BOT_TOKEN")
 if not API_TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
-
-IG_USERNAME = os.getenv("IG_USERNAME")
-IG_PASSWORD = os.getenv("IG_PASSWORD")
 TT_COOKIES = os.getenv("TT_COOKIES", "")
 
-# Logging
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-@dp.message_handler(commands=['start', 'help'])
-async def cmd_start(message: Message):
-    await message.reply("Привіт! Надішліть лінк на Instagram чи TikTok — я закачаю всі відео 🎬")
+@dp.message_handler(commands=['start','help'])
+async def start(m: Message):
+    await m.reply("Привіт! Скидайте посилання на Instagram/TikTok — качаю відео.")
 
 @dp.message_handler()
-async def handle_message(message: Message):
-    url = message.text.strip()
-    # Instagram via login
+async def handler(m: Message):
+    url = m.text.strip()
     if 'instagram.com' in url or 'instagr.am' in url:
-        if not IG_USERNAME or not IG_PASSWORD:
-            await message.reply("🚫 Встановіть логін/пароль Instagram у .env")
-            return
-        await message.reply("🔍 Завантажую Instagram відео (логін)…")
+        await m.reply("🔍 Завантажую Instagram (cookies-from-browser)…")
         with tempfile.TemporaryDirectory() as tmp:
             opts = {
                 'format': 'mp4',
                 'outtmpl': os.path.join(tmp, '%(id)s.%(ext)s'),
                 'quiet': True,
-                'username': IG_USERNAME,
-                'password': IG_PASSWORD,
+                # ось ключове:
+                'cookies_from_browser': 'chrome'
             }
             try:
                 with YoutubeDL(opts) as ydl:
                     info = ydl.extract_info(url, download=True)
                     for e in info.get('entries') or [info]:
-                        path = ydl.prepare_filename(e)
-                        await message.reply_video(open(path, 'rb'))
+                        p = ydl.prepare_filename(e)
+                        await m.reply_video(open(p,'rb'))
             except Exception as e:
-                logging.exception("Instagram download failed")
-                await message.reply(f"🥲 Не вдалося завантажити Instagram:\n{e}")
-    # TikTok via cookies header
+                logging.exception("IG failed")
+                await m.reply(f"🥲 Не вдалось взяти Instagram:\n{e}")
     elif 'tiktok.com' in url or 'vm.tiktok.com' in url:
-        await message.reply("🔍 Завантажую TikTok відео…")
+        await m.reply("🔍 Завантажую TikTok…")
         with tempfile.TemporaryDirectory() as tmp:
             opts = {
                 'format': 'mp4',
@@ -68,23 +58,21 @@ async def handle_message(message: Message):
             try:
                 with YoutubeDL(opts) as ydl:
                     info = ydl.extract_info(url, download=True)
-                    path = ydl.prepare_filename(info)
-                    await message.reply_video(open(path, 'rb'))
+                    p = ydl.prepare_filename(info)
+                    await m.reply_video(open(p,'rb'))
             except Exception as e:
-                logging.exception("TikTok download failed")
-                await message.reply(f"🥲 Не вдалося завантажити TikTok:\n{e}")
+                logging.exception("TT failed")
+                await m.reply(f"🥲 Не вдалось взяти TikTok:\n{e}")
     else:
-        await message.reply("❗ Надішліть прямий лінк на Instagram чи TikTok.")
+        await m.reply("❗ Надішли прямий лінк на Instagram або TikTok.")
 
-# Health-check
 app = Flask(__name__)
 @app.route('/', methods=['GET'])
-def health(): return 'OK', 200
+def health(): return "OK", 200
 
-def run_flask():
-    port = int(os.getenv('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
+def run():
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT',10000)))
 
-if __name__ == '__main__':
-    threading.Thread(target=run_flask, daemon=True).start()
+if __name__=='__main__':
+    threading.Thread(target=run, daemon=True).start()
     executor.start_polling(dp, skip_updates=True)
